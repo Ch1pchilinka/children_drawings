@@ -1,7 +1,7 @@
 [project]
 name = "children-drawings"
 version = "0.1.0"
-description = "Add your description here"
+description = "Classification of children drawings"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -15,4 +15,5 @@ dependencies = [
 [dependency-groups]
 dev = [
     "fire>=0.7.1",
+    "pre-commit>=4.6.0",
 ]
