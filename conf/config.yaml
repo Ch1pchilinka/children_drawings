@@ -1,23 +1,28 @@
-# conf/config.yaml
-defaults:
-  - _self_
-
 data:
-  data_root: ./data
-  batch_size: 64
-  num_workers: 4
+  data_root: data
+  batch_size: 32
+  num_workers: 2
 
 model:
-  name: efficientnet_b3  # или "baseline"
-  freeze_below_index: 300   # только для efficientnet_b3
+  freeze_below_index: 300
 
 training:
   seed: 42
-  epochs: 50
-  lr: 0.001
-  weight_decay: 0.0001
-  precision: 16-mixed       # или 32, если нет поддержки mixed precision
-  log_every_n_steps: 50
-  checkpoint_dir: ./checkpoints
-  log_dir: ./logs
-  resume: null
+
+  epochs: 29
+
+  lr: 1e-3
+
+  weight_decay: 1e-4
+
+  precision: 16-mixed
+
+  age_loss_weight: 0.01
+
+mlflow:
+  tracking_uri: "file:./mlruns"
+  experiment_name: "children_drawings"
+  run_name: "efficientnet_baseline"
+
+huggingface:
+  token: ${oc.env:HF_TOKEN}

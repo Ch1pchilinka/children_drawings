@@ -18,22 +18,22 @@ from pathlib import Path
 
 import fire
 from datasets import load_dataset
+from dotenv import load_dotenv
 from huggingface_hub import dataset_info
+from omegaconf import OmegaConf
 
 DATASET_NAME = "ironDong/Children_Drawings"
 
+load_dotenv()
+
+cfg = OmegaConf.load("../conf/config.yaml")
+
 
 class ChildrenDrawingsDownloader:
-    """CLI for downloading Children_Drawings dataset from Hugging Face."""
-
     def info(self):
-        """Print dataset information."""
-        print("Hugging Face token required for gated dataset")
-        print("Get token at: https://huggingface.co/settings/tokens")
-        token = getpass("Enter your HF token: ")
         info = dataset_info(
             DATASET_NAME,
-            token=token,
+            token=cfg.huggingface.token,
         )
 
         print(f"\nDataset: {info.id}")
@@ -60,20 +60,16 @@ class ChildrenDrawingsDownloader:
         print(f"Downloading dataset '{DATASET_NAME}'...")
 
         if split is not None:
-            print("Hugging Face token required for gated dataset")
-            print("Get token at: https://huggingface.co/settings/tokens")
-            token = getpass("Enter your HF token: ")
-            dataset = load_dataset(DATASET_NAME, split=split, token=token)
+            dataset = load_dataset(
+                DATASET_NAME, split=split, token=cfg.huggingface.token
+            )
 
             split_path = destination / split
             dataset.save_to_disk(str(split_path))
 
             print(f"Saved split '{split}' to '{split_path}'.")
         else:
-            print("Hugging Face token required for gated dataset")
-            print("Get token at: https://huggingface.co/settings/tokens")
-            token = getpass("Enter your HF token: ")
-            dataset = load_dataset(DATASET_NAME, token=token)
+            dataset = load_dataset(DATASET_NAME, token=cfg.huggingface.token)
 
             for split_name, split_data in dataset.items():
                 split_path = destination / split_name
