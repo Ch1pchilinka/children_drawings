@@ -1,28 +1,8 @@
-data:
-  data_root: data
-  batch_size: 32
-  num_workers: 2
-
-model:
-  freeze_below_index: 300
-
-training:
-  seed: 42
-
-  epochs: 29
-
-  lr: 1e-3
-
-  weight_decay: 1e-4
-
-  precision: 16-mixed
-
-  age_loss_weight: 0.01
-
-mlflow:
-  tracking_uri: "file:./mlruns"
-  experiment_name: "children_drawings"
-  run_name: "efficientnet_baseline"
-
-huggingface:
-  token: ${oc.env:HF_TOKEN}
+defaults:
+  - data: default
+  - model: default
+  - training: default
+  - inference: default
+  - logger: default
+  - secret: default
+  - _self_

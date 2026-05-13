@@ -136,7 +136,7 @@ class MultiHeadEfficientNet(pl.LightningModule):
             },
             prog_bar=True,
             on_epoch=True,
-            on_step=False,
+            on_step=True,
         )
 
         return loss
@@ -147,7 +147,7 @@ class MultiHeadEfficientNet(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
 
-        self.shared_step(batch, "val")
+        return self.shared_step(batch, "val")
 
     def configure_optimizers(self):
 

@@ -222,3 +222,5 @@ __marimo__/
 /logs
 /checkpoints
 /test_images
+
+mlflow.db

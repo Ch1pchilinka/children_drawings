@@ -5,9 +5,9 @@ https://huggingface.co/datasets/ironDong/Children_Drawings
 
 Usage:
     uv run python scripts/download.py info
-    uv run python scripts/download.py download
-    uv run python scripts/download.py download --destination_path ./data
-    uv run python scripts/download.py download --split train
+    uv run python scripts/download.py download_data
+    uv run python scripts/download.py download_data --destination_path ./data
+    uv run python scripts/download.py download_data --split train
 """
 
 from __future__ import annotations
@@ -26,14 +26,14 @@ DATASET_NAME = "ironDong/Children_Drawings"
 
 load_dotenv()
 
-cfg = OmegaConf.load("../conf/config.yaml")
+cfg = OmegaConf.load("./conf/secret/default.yaml")
 
 
 class ChildrenDrawingsDownloader:
     def info(self):
         info = dataset_info(
             DATASET_NAME,
-            token=cfg.huggingface.token,
+            token=cfg.token,
         )
 
         print(f"\nDataset: {info.id}")
@@ -42,7 +42,7 @@ class ChildrenDrawingsDownloader:
             print("\nDescription:")
             print(info.description[:500])
 
-    def download(
+    def download_data(
         self,
         destination_path: str = "./data",
         split: str | None = None,
@@ -60,16 +60,14 @@ class ChildrenDrawingsDownloader:
         print(f"Downloading dataset '{DATASET_NAME}'...")
 
         if split is not None:
-            dataset = load_dataset(
-                DATASET_NAME, split=split, token=cfg.huggingface.token
-            )
+            dataset = load_dataset(DATASET_NAME, split=split, token=cfg.token)
 
             split_path = destination / split
             dataset.save_to_disk(str(split_path))
 
             print(f"Saved split '{split}' to '{split_path}'.")
         else:
-            dataset = load_dataset(DATASET_NAME, token=cfg.huggingface.token)
+            dataset = load_dataset(DATASET_NAME, token=cfg.token)
 
             for split_name, split_data in dataset.items():
                 split_path = destination / split_name

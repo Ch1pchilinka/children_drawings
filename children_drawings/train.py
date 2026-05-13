@@ -1,6 +1,7 @@
 import hydra
 import mlflow
 import pytorch_lightning as pl
+from loggers.resolver import get_logger
 from model import MultiHeadEfficientNet
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.callbacks import (
@@ -13,11 +14,7 @@ from pytorch_lightning.loggers import MLFlowLogger
 from data import ChildrenDrawingsDataModule
 
 
-@hydra.main(
-    config_path="../conf",
-    config_name="config",
-    version_base=None,
-)
+@hydra.main(config_path="../conf", config_name="config", version_base=None)
 def train(cfg: DictConfig):
 
     pl.seed_everything(cfg.training.seed)
@@ -55,10 +52,12 @@ def train(cfg: DictConfig):
     ]
 
     trainer = pl.Trainer(
+        enable_checkpointing=cfg.training.enable_checkpointing,
         max_epochs=cfg.training.epochs,
         precision=cfg.training.precision,
+        logger=get_logger(cfg),
         callbacks=callbacks,
-        log_every_n_steps=10,
+        log_every_n_steps=cfg.training.log_every_n_steps,
     )
 
     trainer.fit(

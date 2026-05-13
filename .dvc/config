@@ -1,0 +1,4 @@
+[core]
+    remote = local-data
+['remote "local-data"']
+    url = /home/ilia/children_drawings_local_storage
