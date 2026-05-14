@@ -217,10 +217,11 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-/data
+# /data
 /outputs
 /logs
 /checkpoints
 /test_images
 
 mlflow.db
+dvc-service-account.json

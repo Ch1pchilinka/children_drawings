@@ -1,4 +1,7 @@
 [core]
-    remote = local-data
-['remote "local-data"']
-    url = /home/ilia/children_drawings_local_storage
+    remote = r2-storage
+['remote "r2-storage"']
+    url = s3://children-drawings-dvc/data
+    endpointurl = https://8c75d8e5f01b5fb0a7b0ec8878f6cda9.r2.cloudflarestorage.com
+    access_key_id = 70080cca0146c9a75d9a712295381bd9
+    secret_access_key = c4da07446b5ce3d4db4d35d1c6169dab8929bdded6faaf6b35c70e0bb8ae42f1

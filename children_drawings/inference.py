@@ -1,10 +1,13 @@
 import glob
 import json
 import os
+from pathlib import Path
 
 import hydra
 import numpy as np
 import torch
+from dvc.exceptions import DvcException
+from dvc.repo import Repo
 from model import MultiHeadEfficientNet
 from omegaconf import DictConfig
 from PIL import Image
@@ -30,23 +33,38 @@ def preprocess_image(path):
     return tensor
 
 
+def ensure_data(data_root: str):
+    """Проверяет наличие данных и при необходимости выполняет dvc pull."""
+    data_path = Path(data_root, "validation")
+    if not data_path.exists() or not any(data_path.iterdir()):
+        print("Данные не найдены. Загружаем из облака...")
+        try:
+            Repo(".").pull()
+            print("Данные успешно загружены.")
+        except DvcException as e:
+            raise RuntimeError(f"Ошибка загрузки данных через DVC: {e}")
+    else:
+        print("Данные уже существуют.")
+
+
 @hydra.main(
     config_path="../conf",
-    config_name="infer",
+    config_name="config",
     version_base=None,
 )
 def infer(cfg: DictConfig):
+    ensure_data(cfg.data.data_root)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = MultiHeadEfficientNet.load_from_checkpoint(
-        cfg.checkpoint,
+        cfg.inference.checkpoint,
         map_location=device,
     )
 
     model.eval()
 
-    for image in glob.glob(os.path.join(cfg.images, "*.[pj][np]g")):
+    for image in glob.glob(os.path.join(cfg.inference.images, "*.[pj][np]g")):
         image = preprocess_image(image).to(device)
 
         with torch.no_grad():
