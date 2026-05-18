@@ -5,4 +5,6 @@ defaults:
   - inference: default
   - logger: default
   - secret: default
+  - export: default
+  - paths: default
   - _self_

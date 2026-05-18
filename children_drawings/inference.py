@@ -17,34 +17,9 @@ from utils import (
     IMAGE_SIZE,
     MEAN,
     STD,
+    ensure_data,
+    preprocess_image,
 )
-
-
-def preprocess_image(path):
-
-    image = Image.open(path).convert("RGB").resize((IMAGE_SIZE, IMAGE_SIZE))
-
-    image = np.array(image) / 255.0
-
-    image = (image - np.array(MEAN)) / np.array(STD)
-
-    tensor = torch.from_numpy(image).permute(2, 0, 1).unsqueeze(0).float()
-
-    return tensor
-
-
-def ensure_data(data_root: str):
-    """Проверяет наличие данных и при необходимости выполняет dvc pull."""
-    data_path = Path(data_root, "validation")
-    if not data_path.exists() or not any(data_path.iterdir()):
-        print("Данные не найдены. Загружаем из облака...")
-        try:
-            Repo(".").pull()
-            print("Данные успешно загружены.")
-        except DvcException as e:
-            raise RuntimeError(f"Ошибка загрузки данных через DVC: {e}")
-    else:
-        print("Данные уже существуют.")
 
 
 @hydra.main(
@@ -53,7 +28,7 @@ def ensure_data(data_root: str):
     version_base=None,
 )
 def infer(cfg: DictConfig):
-    ensure_data(cfg.data.data_root)
+    ensure_data(cfg.data.data_root, "validation")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

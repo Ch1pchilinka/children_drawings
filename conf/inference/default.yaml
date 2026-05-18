@@ -1,2 +1,2 @@
-checkpoint: checkpoints/best.ckpt
-images: test_images
+checkpoint: ${paths.artifacts_path}/checkpoints/best.ckpt
+images: ${paths.data_root}/batch

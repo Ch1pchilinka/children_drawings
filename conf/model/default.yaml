@@ -1,1 +1,4 @@
 freeze_below_index: 300
+device: auto
+opset: 17
+dynamic_axes: true

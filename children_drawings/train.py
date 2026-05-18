@@ -14,27 +14,14 @@ from pytorch_lightning.callbacks import (
     ModelCheckpoint,
 )
 from pytorch_lightning.loggers import MLFlowLogger
+from utils import ensure_data
 
 from data import ChildrenDrawingsDataModule
 
 
-def ensure_data(data_root: str):
-    """Проверяет наличие данных и при необходимости выполняет dvc pull."""
-    data_path = Path(data_root, "train")
-    if not data_path.exists() or not any(data_path.iterdir()):
-        print("Данные не найдены. Загружаем из облака...")
-        try:
-            Repo(".").pull()
-            print("Данные успешно загружены.")
-        except DvcException as e:
-            raise RuntimeError(f"Ошибка загрузки данных через DVC: {e}")
-    else:
-        print("Данные уже существуют.")
-
-
 @hydra.main(config_path="../conf", config_name="config", version_base=None)
 def train(cfg: DictConfig):
-    ensure_data(cfg.data.data_root)
+    ensure_data(cfg.data.data_root, train)
 
     pl.seed_everything(cfg.training.seed)
 
@@ -54,7 +41,7 @@ def train(cfg: DictConfig):
 
     callbacks = [
         ModelCheckpoint(
-            dirpath="checkpoints",
+            dirpath="artifacts/checkpoints",
             filename="best",
             monitor="val_loss",
             mode="min",

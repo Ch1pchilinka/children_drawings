@@ -1,4 +1,4 @@
 
-data_root: data
+data_root: ${paths.data_root}
 batch_size: 32
 num_workers: 2

@@ -36,11 +36,11 @@ def get_logger(cfg: DictConfig) -> Logger:
     if logger_type == "mlflow":
         from loggers.mlflow_logger import build_logger
 
-        params = cfg.logger.mlflow
         return build_logger(
-            tracking_uri=params.tracking_uri,
-            experiment_name=params.experiment_name,
-            run_name=params.run_name,
+            tracking_uri=cfg.logger.mlflow.tracking_uri,
+            experiment_name=cfg.logger.mlflow.experiment_name,
+            run_name=cfg.logger.mlflow.run_name,
+            save_dir=cfg.logger.mlflow.save_dir,
         )
 
     raise ValueError(

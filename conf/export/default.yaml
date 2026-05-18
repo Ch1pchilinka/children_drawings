@@ -1,0 +1,6 @@
+batch_path: ${paths.data_root}/batch
+onnx_path: ${paths.artifacts_path}/onnx_models/children_drawings.onnx
+parity_atol: 1e-4
+parity_rtol: 1e-3
+input_mode: random
+seed: 42

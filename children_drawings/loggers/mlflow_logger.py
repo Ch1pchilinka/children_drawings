@@ -4,9 +4,7 @@ from pytorch_lightning.loggers import MLFlowLogger
 
 
 def build_logger(
-    tracking_uri: str,
-    experiment_name: str,
-    run_name: str | None,
+    tracking_uri: str, experiment_name: str, run_name: str | None, save_dir: str
 ) -> MLFlowLogger:
     """Instantiate an MLFlowLogger from config parameters.
 
@@ -23,4 +21,5 @@ def build_logger(
         tracking_uri=tracking_uri,
         experiment_name=experiment_name,
         run_name=run_name,
+        save_dir=save_dir,
     )

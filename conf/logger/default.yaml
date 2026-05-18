@@ -1,7 +1,7 @@
 type: mlflow
 
 tensorboard:
-  save_dir: logs/tensorboard
+  save_dir: ${paths.logs}/tensorboard
   name: children_drawings
   version: null
 
@@ -9,4 +9,5 @@ tensorboard:
 mlflow:
   tracking_uri: http://localhost:8080
   experiment_name: children_drawings
+  save_dir: ${paths.logs}/mlflow
   run_name: null

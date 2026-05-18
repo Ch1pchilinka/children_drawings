@@ -225,3 +225,7 @@ __marimo__/
 
 mlflow.db
 dvc-service-account.json
+
+children_drawings/playgr.ipynb
+TODO.txt
+artifacts/
