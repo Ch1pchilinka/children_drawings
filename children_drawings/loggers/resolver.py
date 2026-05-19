@@ -12,8 +12,7 @@ def get_logger(cfg: DictConfig) -> Logger:
 
     Args:
         cfg: Full Hydra config. Must contain a ``logger`` key with at least
-            ``type`` and a matching sub-key (``tensorboard``, ``mlflow``,
-            or ``wandb``) holding the logger hyperparameters.
+            ``type`` and a matching sub-key holding the logger hyperparameters.
 
     Returns:
         A configured PyTorch Lightning logger instance.
@@ -23,18 +22,8 @@ def get_logger(cfg: DictConfig) -> Logger:
     """
     logger_type = cfg.logger.type
 
-    if logger_type == "tensorboard":
-        from loggers.tensorboard_logger import build_logger
-
-        params = cfg.logger.tensorboard
-        return build_logger(
-            save_dir=params.save_dir,
-            name=params.name,
-            version=params.version,
-        )
-
     if logger_type == "mlflow":
-        from loggers.mlflow_logger import build_logger
+        from .mlflow_logger import build_logger
 
         return build_logger(
             tracking_uri=cfg.logger.mlflow.tracking_uri,
@@ -43,6 +32,4 @@ def get_logger(cfg: DictConfig) -> Logger:
             save_dir=cfg.logger.mlflow.save_dir,
         )
 
-    raise ValueError(
-        f"Unknown logger type: '{logger_type}'. Choose one of: tensorboard, mlflow."
-    )
+    raise ValueError(f"Unknown logger type: '{logger_type}'. Choose one of: mlflow.")

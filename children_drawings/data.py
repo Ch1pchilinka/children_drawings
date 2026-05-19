@@ -6,11 +6,13 @@ import torch
 from datasets import load_from_disk
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
-from utils import (
+
+from .utils import (
     CATEGORY_MAP,
     GENDER_MAP,
     TRAIN_TRANSFORMS,
     VAL_TRANSFORMS,
+    resolve_repo_path,
 )
 
 
@@ -54,7 +56,7 @@ class ChildrenDrawingsDataModule(pl.LightningDataModule):
         num_workers: int = 1,
     ):
         super().__init__()
-        self.data_root = Path(data_root)
+        self.data_root = resolve_repo_path(data_root)
         self.batch_size = batch_size
         self.num_workers = num_workers
 

@@ -1,2 +1,4 @@
-checkpoint: ${paths.artifacts_path}/checkpoints/best.ckpt
+checkpoint: ${paths.artifacts_path}/checkpoints/${inference.best}
 images: ${paths.data_root}/batch
+onnx_model: ${export.onnx_path}
+best: best.ckpt

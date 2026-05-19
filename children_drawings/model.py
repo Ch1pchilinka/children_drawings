@@ -9,7 +9,8 @@ from torchvision.models import (
     EfficientNet_B3_Weights,
     efficientnet_b3,
 )
-from utils import NUM_CLASSES
+
+from .utils import NUM_CLASSES
 
 
 class MultiHeadEfficientNet(pl.LightningModule):
@@ -20,13 +21,14 @@ class MultiHeadEfficientNet(pl.LightningModule):
         epochs=30,
         age_loss_weight=0.01,
         freeze_below_index=300,
+        pretrained=True,
     ):
         super().__init__()
 
         self.save_hyperparameters()
 
         backbone = efficientnet_b3(
-            weights=EfficientNet_B3_Weights.IMAGENET1K_V1,
+            weights=EfficientNet_B3_Weights.IMAGENET1K_V1 if pretrained else None,
         )
 
         for idx, (_, param) in enumerate(backbone.named_parameters()):
@@ -56,23 +58,23 @@ class MultiHeadEfficientNet(pl.LightningModule):
         self.ce = nn.CrossEntropyLoss()
         self.mse = nn.MSELoss()
 
-        self.train_acc = Accuracy(
+        self.train_category_acc = Accuracy(
             task="multiclass",
             num_classes=NUM_CLASSES,
         )
 
-        self.val_acc = Accuracy(
+        self.val_category_acc = Accuracy(
             task="multiclass",
             num_classes=NUM_CLASSES,
         )
 
-        self.train_f1 = F1Score(
+        self.train_category_f1 = F1Score(
             task="multiclass",
             num_classes=NUM_CLASSES,
             average="macro",
         )
 
-        self.val_f1 = F1Score(
+        self.val_category_f1 = F1Score(
             task="multiclass",
             num_classes=NUM_CLASSES,
             average="macro",
@@ -80,6 +82,28 @@ class MultiHeadEfficientNet(pl.LightningModule):
 
         self.train_mae = MeanAbsoluteError()
         self.val_mae = MeanAbsoluteError()
+
+        self.train_gender_acc = Accuracy(
+            task="multiclass",
+            num_classes=2,
+        )
+
+        self.val_gender_acc = Accuracy(
+            task="multiclass",
+            num_classes=2,
+        )
+
+        self.train_gender_f1 = F1Score(
+            task="multiclass",
+            num_classes=2,
+            average="macro",
+        )
+
+        self.val_gender_f1 = F1Score(
+            task="multiclass",
+            num_classes=2,
+            average="macro",
+        )
 
     def forward(self, x):
 
@@ -112,31 +136,54 @@ class MultiHeadEfficientNet(pl.LightningModule):
 
         loss = loss_cat + self.hparams.age_loss_weight * loss_age + loss_gender
 
-        acc_metric = self.train_acc if stage == "train" else self.val_acc
+        category_acc_metric = (
+            self.train_category_acc if stage == "train" else self.val_category_acc
+        )
 
-        f1_metric = self.train_f1 if stage == "train" else self.val_f1
+        category_f1_metric = (
+            self.train_category_f1 if stage == "train" else self.val_category_f1
+        )
 
         mae_metric = self.train_mae if stage == "train" else self.val_mae
+
+        gender_acc_metric = (
+            self.train_gender_acc if stage == "train" else self.val_gender_acc
+        )
+
+        gender_f1_metric = (
+            self.train_gender_f1 if stage == "train" else self.val_gender_f1
+        )
 
         self.log_dict(
             {
                 f"{stage}_loss": loss,
-                f"{stage}_acc": acc_metric(
+                f"{stage}_category_loss": loss_cat,
+                f"{stage}_age_loss": loss_age,
+                f"{stage}_gender_loss": loss_gender,
+                f"{stage}_category_acc": category_acc_metric(
                     outputs["category"],
                     batch["category"],
                 ),
-                f"{stage}_f1": f1_metric(
+                f"{stage}_category_f1": category_f1_metric(
                     outputs["category"],
                     batch["category"],
                 ),
-                f"{stage}_mae": mae_metric(
+                f"{stage}_age_mae": mae_metric(
                     outputs["age"],
                     batch["age"],
+                ),
+                f"{stage}_gender_acc": gender_acc_metric(
+                    outputs["gender"],
+                    batch["gender"],
+                ),
+                f"{stage}_gender_f1": gender_f1_metric(
+                    outputs["gender"],
+                    batch["gender"],
                 ),
             },
             prog_bar=True,
             on_epoch=True,
-            on_step=True,
+            on_step=stage == "train",
         )
 
         return loss

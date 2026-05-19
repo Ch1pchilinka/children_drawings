@@ -1,0 +1,63 @@
+services:
+  mlflow:
+    build: .
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --backend-store-uri
+      - sqlite:////mlflow/mlflow.db
+      - --default-artifact-root
+      - /mlflow/artifacts
+    ports:
+      - "8080:8080"
+    volumes:
+      - mlflow-data:/mlflow
+
+  dvc-pull:
+    build: .
+    command: dvc pull
+    profiles: ["data"]
+    environment:
+      DVC_NO_ANALYTICS: "1"
+    volumes:
+      - ./data:/app/data
+      - ./.dvc/config.local:/app/.dvc/config.local:ro
+      - dvc-cache:/app/.dvc/cache
+
+  trainer:
+    build: .
+    command:
+      - children-drawings-train
+      - logger.mlflow.tracking_uri=http://mlflow:8080
+    profiles: ["train"]
+    depends_on:
+      - mlflow
+    environment:
+      DVC_NO_ANALYTICS: "1"
+      MLFLOW_TRACKING_URI: http://mlflow:8080
+    gpus: all
+    volumes:
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+      - ./logs:/app/logs
+      - ./.dvc/config.local:/app/.dvc/config.local:ro
+      - dvc-cache:/app/.dvc/cache
+
+  api:
+    build: .
+    command:
+      - children-drawings-api
+    ports:
+      - "8000:8000"
+    environment:
+      CHILDREN_DRAWINGS_ONNX_PATH: /app/artifacts/onnx_models/children_drawings.onnx
+    volumes:
+      - ./artifacts:/app/artifacts:ro
+
+volumes:
+  dvc-cache:
+  mlflow-data:

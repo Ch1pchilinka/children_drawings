@@ -1,27 +1,21 @@
-from pathlib import Path
-
 import hydra
-import mlflow
 import pytorch_lightning as pl
-from dvc.exceptions import DvcException
-from dvc.repo import Repo
-from loggers.resolver import get_logger
-from model import MultiHeadEfficientNet
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 from pytorch_lightning.callbacks import (
     EarlyStopping,
     LearningRateMonitor,
     ModelCheckpoint,
 )
-from pytorch_lightning.loggers import MLFlowLogger
-from utils import ensure_data
 
-from data import ChildrenDrawingsDataModule
+from .data import ChildrenDrawingsDataModule
+from .loggers.resolver import get_logger
+from .model import MultiHeadEfficientNet
+from .utils import ensure_data, resolve_repo_path
 
 
-@hydra.main(config_path="../conf", config_name="config", version_base=None)
 def train(cfg: DictConfig):
-    ensure_data(cfg.data.data_root, train)
+    ensure_data(cfg.data.data_root, "train")
+    ensure_data(cfg.data.data_root, "validation")
 
     pl.seed_everything(cfg.training.seed)
 
@@ -37,16 +31,10 @@ def train(cfg: DictConfig):
         epochs=cfg.training.epochs,
         age_loss_weight=cfg.training.age_loss_weight,
         freeze_below_index=cfg.model.freeze_below_index,
+        pretrained=cfg.model.pretrained,
     )
 
     callbacks = [
-        ModelCheckpoint(
-            dirpath="artifacts/checkpoints",
-            filename="best",
-            monitor="val_loss",
-            mode="min",
-            save_top_k=1,
-        ),
         EarlyStopping(
             monitor="val_loss",
             patience=5,
@@ -57,10 +45,25 @@ def train(cfg: DictConfig):
         ),
     ]
 
+    if cfg.training.enable_checkpointing:
+        callbacks.insert(
+            0,
+            ModelCheckpoint(
+                dirpath=str(
+                    resolve_repo_path(cfg.paths.artifacts_path) / "checkpoints"
+                ),
+                filename="best",
+                monitor="val_loss",
+                mode="min",
+                save_top_k=1,
+            ),
+        )
+
     trainer = pl.Trainer(
         enable_checkpointing=cfg.training.enable_checkpointing,
         max_epochs=cfg.training.epochs,
         precision=cfg.training.precision,
+        accelerator=cfg.model.device,
         logger=get_logger(cfg),
         callbacks=callbacks,
         log_every_n_steps=cfg.training.log_every_n_steps,
@@ -71,6 +74,13 @@ def train(cfg: DictConfig):
         datamodule=datamodule,
     )
 
+    return trainer
+
+
+@hydra.main(config_path="../conf", config_name="config", version_base=None)
+def main(cfg: DictConfig):
+    train(cfg)
+
 
 if __name__ == "__main__":
-    train()
+    main()

@@ -4,22 +4,55 @@ import os
 from pathlib import Path
 
 import hydra
-import numpy as np
 import torch
-from dvc.exceptions import DvcException
-from dvc.repo import Repo
-from model import MultiHeadEfficientNet
 from omegaconf import DictConfig
-from PIL import Image
-from utils import (
-    CLASS_NAMES,
-    GENDER_NAMES,
-    IMAGE_SIZE,
-    MEAN,
-    STD,
-    ensure_data,
-    preprocess_image,
-)
+
+from .model import MultiHeadEfficientNet
+from .prediction import decode_torch_outputs
+from .utils import ensure_data, preprocess_image, resolve_repo_path
+
+IMAGE_PATTERNS = ("*.jpg", "*.jpeg", "*.png")
+
+
+def collect_image_paths(path: str | Path) -> list[Path]:
+    image_path = resolve_repo_path(path)
+    if not image_path.exists():
+        split_name = image_path.name
+        ensure_data(str(image_path.parent), split_name)
+
+    if image_path.is_file():
+        return [image_path]
+
+    paths: list[Path] = []
+    for pattern in IMAGE_PATTERNS:
+        paths.extend(Path(p) for p in glob.glob(os.path.join(str(image_path), pattern)))
+    return sorted(paths)
+
+
+def infer(cfg: DictConfig):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    checkpoint_path = resolve_repo_path(cfg.inference.checkpoint)
+
+    model = MultiHeadEfficientNet.load_from_checkpoint(
+        str(checkpoint_path),
+        map_location=device,
+    )
+
+    model.eval()
+
+    image_paths = collect_image_paths(cfg.inference.images)
+    if not image_paths:
+        raise FileNotFoundError(f"No images found in {cfg.inference.images}")
+
+    for image_path in image_paths:
+        image = preprocess_image(image_path).to(device)
+
+        with torch.no_grad():
+            outputs = model(image)
+            result = decode_torch_outputs(outputs)[0]
+            result["image"] = image_path.name
+
+        print(json.dumps(result, indent=2))
 
 
 @hydra.main(
@@ -27,39 +60,9 @@ from utils import (
     config_name="config",
     version_base=None,
 )
-def infer(cfg: DictConfig):
-    ensure_data(cfg.data.data_root, "validation")
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    model = MultiHeadEfficientNet.load_from_checkpoint(
-        cfg.inference.checkpoint,
-        map_location=device,
-    )
-
-    model.eval()
-
-    for image in glob.glob(os.path.join(cfg.inference.images, "*.[pj][np]g")):
-        image = preprocess_image(image).to(device)
-
-        with torch.no_grad():
-            outputs = model(image)
-
-            probs = outputs["category"].softmax(-1)
-
-            category_id = probs.argmax().item()
-
-            gender_id = outputs["gender"].softmax(-1).argmax().item()
-
-            result = {
-                "class": CLASS_NAMES[category_id],
-                "confidence": probs[0, category_id].item(),
-                "age": int(outputs["age"].item()),
-                "gender": GENDER_NAMES[gender_id],
-            }
-
-        print(json.dumps(result, indent=2))
+def main(cfg: DictConfig):
+    infer(cfg)
 
 
 if __name__ == "__main__":
-    infer()
+    main()

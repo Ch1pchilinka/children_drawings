@@ -1,13 +1,7 @@
 type: mlflow
 
-tensorboard:
-  save_dir: ${paths.logs}/tensorboard
-  name: children_drawings
-  version: null
-
-# uv run mlflow server --host 127.0.0.1 --port 8080
 mlflow:
-  tracking_uri: http://localhost:8080
+  tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,http://localhost:8080}
   experiment_name: children_drawings
   save_dir: ${paths.logs}/mlflow
   run_name: null

@@ -1,5 +1,3 @@
-import importlib
-import sys
 from pathlib import Path
 
 import albumentations as A
@@ -60,22 +58,36 @@ VAL_TRANSFORMS = A.Compose(
     ]
 )
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
-def preprocess_image(path):
-    image = Image.open(path).convert("RGB").resize((IMAGE_SIZE, IMAGE_SIZE))
-    image = np.array(image) / 255.0
-    image = (image - np.array(MEAN)) / np.array(STD)
-    tensor = torch.from_numpy(image).permute(2, 0, 1).unsqueeze(0).float()
-    return tensor
+
+def resolve_repo_path(path_like: str | Path) -> Path:
+    """Resolve config paths against the repository root."""
+    path = Path(path_like).expanduser()
+    if path.is_absolute():
+        return path
+    return (REPO_ROOT / path).resolve()
+
+
+def preprocess_pil_image(image: Image.Image) -> torch.Tensor:
+    """Convert a PIL image to a normalized BCHW tensor."""
+    image_array = np.array(image.convert("RGB"))
+    tensor = VAL_TRANSFORMS(image=image_array)["image"]
+    return tensor.unsqueeze(0).float()
+
+
+def preprocess_image(path: str | Path) -> torch.Tensor:
+    with Image.open(path) as image:
+        return preprocess_pil_image(image)
 
 
 def ensure_data(data_root: str, mode: str):
     """Проверяет наличие данных и при необходимости выполняет dvc pull."""
-    data_path = Path(data_root, mode)
+    data_path = resolve_repo_path(Path(data_root, mode))
     if not data_path.exists() or not any(data_path.iterdir()):
         print("Данные не найдены. Загружаем из облака...")
         try:
-            Repo(".").pull()
+            Repo(str(REPO_ROOT)).pull()
             print("Данные успешно загружены.")
         except DvcException as e:
             raise RuntimeError(f"Ошибка загрузки данных через DVC: {e}")
@@ -91,6 +103,8 @@ def load_images_as_tensor_batch(
     names: list[str] = []
     for image_path in image_paths:
         tensor = preprocess_image(image_path)
+        # Убираем лишнее измерение [1, C, H, W] -> [C, H, W]
+        tensor = tensor.squeeze(0)
         tensors.append(tensor)
         names.append(image_path.name)
     if not tensors:
