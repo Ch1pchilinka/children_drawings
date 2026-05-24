@@ -169,6 +169,7 @@ flowchart TD
 ```bash
 uv sync --dev
 uv run pre-commit install
+cp .env.example .env
 uv run dvc pull data/train.dvc data/validation.dvc data/batch.dvc
 ```
 

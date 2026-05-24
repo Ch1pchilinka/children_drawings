@@ -245,7 +245,7 @@ dvc-service-account.json
 
 # Artifacts directory: keep only DVC pointer files
 artifacts/*
-!artifacts/onnx_models.dvc
+!artifacts/*.dvc
 
 # Model / checkpoint binaries
 models/**/model.plan
