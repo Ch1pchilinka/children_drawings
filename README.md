@@ -6,8 +6,6 @@
 - `age`: регрессия возраста
 - `gender`: `male`, `female`
 
-Проект: **Громаков Илья Алексеевич**
-
 ## Постановка задачи
 
 Разработка ML-сервиса для автоматического анализа детского рисунка:
@@ -87,12 +85,6 @@
 
 ## Overall (структура проекта)
 
-Команда для автоматической генерации дерева:
-
-```bash
-tree -L 2 -I ".git|.venv|outputs|__pycache__|.ruff_cache|.pytest_cache"
-```
-
 Актуальная структура проекта:
 
 ```text
@@ -157,18 +149,16 @@ tree -L 2 -I ".git|.venv|outputs|__pycache__|.ruff_cache|.pytest_cache"
 5. Из ONNX собирается TensorRT engine (`.plan`) для Triton.
 6. Triton поднимается с моделью и используется через API/Web UI/smoke-клиент.
 
-Ниже та же логика в виде Mermaid-диаграммы.
-
 ```mermaid
 flowchart TD
-  A[DVC: data train/validation/batch] --> B[Train: PyTorch Lightning + Hydra]
-  B --> C[Best checkpoint: artifacts/checkpoints/best.ckpt]
-  C --> D[Export: ONNX]
-  D --> E[Build: TensorRT engine (.plan)]
-  E --> F[Triton Inference Server]
-  F --> G1[FastAPI + Web UI]
-  F --> G2[triton_smoke.py]
-  C --> H[Local CLI infer: children-drawings-infer]
+  A["DVC data: train validation batch"] --> B["Train with PyTorch Lightning and Hydra"]
+  B --> C["Best checkpoint artifacts/checkpoints/best.ckpt"]
+  C --> D["Export to ONNX"]
+  D --> E["Build TensorRT engine .plan"]
+  E --> F["Triton Inference Server"]
+  F --> G1["FastAPI and Web UI"]
+  F --> G2["triton_smoke.py"]
+  C --> H["Local CLI infer children-drawings-infer"]
 ```
 
 ## Setup
