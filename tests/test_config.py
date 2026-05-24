@@ -12,4 +12,5 @@ def test_hydra_config_loads():
 
     assert cfg.data.batch_size > 0
     assert cfg.model.opset >= 18
+    assert cfg.model.architecture == "efficientnet_b3"
     assert cfg.logger.type == "mlflow"

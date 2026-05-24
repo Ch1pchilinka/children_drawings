@@ -12,7 +12,7 @@ from pytorch_lightning.loggers import MLFlowLogger
 
 from .data import ChildrenDrawingsDataModule
 from .loggers.resolver import get_logger
-from .model import MultiHeadEfficientNet
+from .model import build_model
 from .utils import REPO_ROOT, ensure_data, resolve_repo_path
 
 
@@ -40,7 +40,8 @@ def train(cfg: DictConfig):
         num_workers=cfg.data.num_workers,
     )
 
-    model = MultiHeadEfficientNet(
+    model = build_model(
+        architecture=cfg.model.architecture,
         lr=cfg.training.lr,
         weight_decay=cfg.training.weight_decay,
         epochs=cfg.training.epochs,
@@ -77,8 +78,14 @@ def train(cfg: DictConfig):
     logger = get_logger(cfg)
 
     git_commit_id = _resolve_git_commit_id()
-    if isinstance(logger, MLFlowLogger) and logger.run_id is not None and git_commit_id:
-        logger.experiment.log_param(logger.run_id, "git_commit_id", git_commit_id)
+    if isinstance(logger, MLFlowLogger) and logger.run_id is not None:
+        if git_commit_id:
+            logger.experiment.log_param(logger.run_id, "git_commit_id", git_commit_id)
+        logger.experiment.log_param(
+            logger.run_id,
+            "model_architecture",
+            str(cfg.model.architecture),
+        )
 
     trainer = pl.Trainer(
         enable_checkpointing=cfg.training.enable_checkpointing,

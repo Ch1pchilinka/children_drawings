@@ -9,7 +9,7 @@ import onnxruntime as ort
 import torch
 from omegaconf import DictConfig
 
-from .model import MultiHeadEfficientNet
+from .model import EFFICIENTNET_B3_ARCH, MultiHeadEfficientNet
 from .utils import ensure_data, load_images_as_tensor_batch, resolve_repo_path
 
 OUTPUT_NAMES = ("category", "age", "gender")
@@ -126,7 +126,14 @@ def _assert_output_parity(
 
 
 def export_to_onnx(cfg: DictConfig) -> tuple[Path, int, float]:
-    """Export the configured children_drawings checkpoint to ONNX and validate parity."""
+    """Export checkpoint to ONNX and validate parity against PyTorch outputs."""
+    if cfg.model.architecture != EFFICIENTNET_B3_ARCH:
+        raise ValueError(
+            "ONNX export is configured only for the main model "
+            f"('{EFFICIENTNET_B3_ARCH}'). "
+            "Baseline ResNet-18 is for train/eval comparison only."
+        )
+
     ensure_data(cfg.data.data_root, "batch")
 
     device = torch.device("cpu")

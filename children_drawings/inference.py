@@ -7,7 +7,7 @@ import hydra
 import torch
 from omegaconf import DictConfig
 
-from .model import MultiHeadEfficientNet
+from .model import EFFICIENTNET_B3_ARCH, MultiHeadEfficientNet
 from .prediction import decode_torch_outputs
 from .utils import ensure_data, preprocess_image, resolve_repo_path
 
@@ -30,6 +30,13 @@ def collect_image_paths(path: str | Path) -> list[Path]:
 
 
 def infer(cfg: DictConfig):
+    if cfg.model.architecture != EFFICIENTNET_B3_ARCH:
+        raise ValueError(
+            "Inference is available only for the main model "
+            f"('{EFFICIENTNET_B3_ARCH}'). "
+            "Baseline ResNet-18 is for train/eval comparison only."
+        )
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     checkpoint_path = resolve_repo_path(cfg.inference.checkpoint)
 

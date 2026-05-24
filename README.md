@@ -57,7 +57,7 @@
 
 - Train: ~40k изображений
 - Validation: ~4.5k изображений
-- Категории: `집`, `나무`, `남자사람`, `여자사람`
+- Категории: `집 (house)`, `나무 (tree)`, `남자사람 (man)`, `여자사람 (woman)`
 
 Именование изображений в исходном датасете: `[category]_[age]_[gender]_[id].jpg`.
 
@@ -65,7 +65,7 @@
 
 Бейзлайн (для сравнения):
 
-- эмбеддинги предобученного ResNet-18 без fine-tune (описан как контрольный вариант).
+- предобученный `ResNet-18` как замороженный feature extractor (без fine-tune backbone), обучаются только task heads.
 
 Основная модель:
 
@@ -83,22 +83,98 @@
 ## Валидация
 
 Текущая реализация использует штатное разделение `train/validation` датасета.
-Сид фиксирован для воспроизводимости. K-fold режим остается отдельным расширением.
+Сид фиксирован для воспроизводимости.
 
 ## Overall (структура проекта)
 
+Команда для автоматической генерации дерева:
+
+```bash
+tree -L 2 -I ".git|.venv|outputs|__pycache__|.ruff_cache|.pytest_cache"
+```
+
+Актуальная структура проекта:
+
 ```text
-children_drawings/        # package: data/model/train/evaluate/export/api
-conf/                     # Hydra-конфиги (единая точка входа conf/config.yaml)
-data/                     # DVC-tracked train/validation/batch
-models/                   # Triton model repository + DVC pointer для model.plan
-scripts/                  # вспомогательные CLI (download, dvc pull, triton smoke)
-docker/                   # Dockerfile'ы
-tests/                    # smoke-тесты
-compose.yaml              # локальные сервисы: mlflow + triton + web-app
+.
+├── README.md
+├── pyproject.toml
+├── uv.lock
+├── .pre-commit-config.yaml
+├── .dvc
+│   ├── config
+│   └── config.local.example
+├── conf
+│   ├── config.yaml
+│   ├── data
+│   ├── export
+│   ├── inference
+│   ├── logger
+│   ├── model
+│   ├── paths
+│   ├── secret
+│   └── training
+├── children_drawings
+│   ├── api.py
+│   ├── data.py
+│   ├── evaluate.py
+│   ├── exporting.py
+│   ├── inference.py
+│   ├── model.py
+│   ├── prediction.py
+│   ├── train.py
+│   └── utils.py
+├── scripts
+│   ├── download.py
+│   ├── pull_from_dvc.py
+│   └── triton_smoke.py
+├── data
+│   ├── train.dvc
+│   ├── validation.dvc
+│   └── batch.dvc
+├── artifacts
+│   └── onnx_models.dvc
+├── models
+│   └── children_drawings
+│       ├── 1
+│       └── config.pbtxt
+├── docker
+│   ├── Dockerfile.triton-pipeline
+│   └── Dockerfile.web
+├── compose.yaml
+├── plots
+└── tests
+```
+
+## Пайплайн (обучение -> упаковка -> инференс)
+
+Кратко в шагах:
+
+1. Данные подтягиваются через DVC (`train/validation/batch`).
+2. Модель обучается в PyTorch Lightning (конфигурация через Hydra).
+3. Лучший checkpoint сохраняется в `artifacts/checkpoints`.
+4. Checkpoint экспортируется в ONNX.
+5. Из ONNX собирается TensorRT engine (`.plan`) для Triton.
+6. Triton поднимается с моделью и используется через API/Web UI/smoke-клиент.
+
+Ниже та же логика в виде Mermaid-диаграммы.
+
+```mermaid
+flowchart TD
+  A[DVC: data train/validation/batch] --> B[Train: PyTorch Lightning + Hydra]
+  B --> C[Best checkpoint: artifacts/checkpoints/best.ckpt]
+  C --> D[Export: ONNX]
+  D --> E[Build: TensorRT engine (.plan)]
+  E --> F[Triton Inference Server]
+  F --> G1[FastAPI + Web UI]
+  F --> G2[triton_smoke.py]
+  C --> H[Local CLI infer: children-drawings-infer]
 ```
 
 ## Setup
+
+Перед `dvc pull` настройте доступы к DVC remote (например, через `.dvc/config.local`
+или переменные окружения из раздела "Секреты").
 
 ```bash
 uv sync --dev
@@ -108,7 +184,11 @@ uv run dvc pull data/train.dvc data/validation.dvc data/batch.dvc
 
 ## Train
 
-Базовый запуск:
+1. Установить окружение и подтянуть данные (раздел Setup).
+2. Запустить обучение основной модели.
+3. При необходимости запустить baseline для сравнения.
+
+Базовый запуск тренировки (`EfficientNet-B3`):
 
 ```bash
 uv run children-drawings-train
@@ -126,6 +206,13 @@ uv run children-drawings-evaluate
 uv run children-drawings-train training.epochs=5 data.batch_size=16
 ```
 
+Запуск baseline `ResNet-18` (без fine-tune, только для сравнения):
+
+```bash
+uv run children-drawings-train model.architecture=resnet18_baseline
+uv run children-drawings-evaluate model.architecture=resnet18_baseline
+```
+
 По умолчанию в основном конфиге установлено `training.epochs=30`.
 
 ## Logging (MLflow)
@@ -136,7 +223,8 @@ MLflow tracking URI: `http://localhost:8080` (по умолчанию, чере�
 
 - метрики обучения/валидации,
 - гиперпараметры запуска,
-- `git_commit_id` (версия кода запуска).
+- `git_commit_id` (версия кода запуска),
+- `model_architecture` (какая архитектура запускалась: `efficientnet_b3` или `resnet18_baseline`).
 
 Локальный MLflow server:
 
@@ -164,7 +252,20 @@ uv run dvc pull artifacts/onnx_models.dvc
 docker compose run --rm trtexec-build
 ```
 
+4. Положить собранный engine в Triton model repository:
+
+```bash
+cp artifacts/tensorrt_models/children_drawings.plan models/children_drawings/1/model.plan
+```
+
 В репозитории хранится только ONNX. Готовый `model.plan` не версионируется и не хранится в DVC.
+
+Комплект поставки для продакшена:
+
+- `artifacts/onnx_models/children_drawings.onnx` (+ `.onnx.data`);
+- `models/children_drawings/config.pbtxt`;
+- `models/children_drawings/1/model.plan` (собирается на целевой машине);
+- `children_drawings/api.py` и web UI для пользовательского API.
 
 ## DVC: данные и модели
 
@@ -193,7 +294,47 @@ uv run python scripts/pull_from_dvc.py onnx
 
 ## Infer / Serving
 
-Triton + TensorRT:
+### Локальный инференс из checkpoint (PyTorch)
+
+Запуск по умолчанию (берет `inference.images=${paths.data_root}/batch`):
+
+```bash
+uv run children-drawings-infer
+```
+
+Запуск по конкретному файлу:
+
+```bash
+uv run children-drawings-infer inference.images=data/batch/house_image.jpg
+```
+
+Запуск с override checkpoint:
+
+```bash
+uv run children-drawings-infer inference.checkpoint=artifacts/checkpoints/best.ckpt
+```
+
+Формат входа:
+
+- путь к одному изображению (`.jpg/.jpeg/.png`) или директории с изображениями;
+- если путь к DVC-сплиту отсутствует локально, данные подтягиваются автоматически.
+
+Пример вывода:
+
+```json
+{
+  "class": "house",
+  "confidence": 0.97,
+  "age": 8,
+  "gender": "female",
+  "gender_confidence": 0.93,
+  "image": "house_image.jpg"
+}
+```
+
+### Triton + TensorRT (серверный инференс)
+
+Поднять Triton:
 
 ```bash
 docker compose up triton-pipeline
@@ -210,6 +351,10 @@ Web-сервис (загрузка файлов + canvas-рисование):
 ```bash
 docker compose up triton-pipeline web-app
 ```
+
+Важно: инференс/экспорт в этом сервисе выполняется только для основной модели
+`EfficientNet-B3`. Baseline `ResNet-18` используется только как контрольный
+вариант в train/evaluate.
 
 Endpoints:
 

@@ -1,3 +1,5 @@
+# efficientnet_b3 | resnet18_baseline
+architecture: efficientnet_b3
 freeze_below_index: 300
 device: auto
 pretrained: true

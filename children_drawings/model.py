@@ -6,38 +6,39 @@ from torchmetrics.classification import Accuracy, F1Score
 from torchmetrics.regression import MeanAbsoluteError
 from torchvision.models import (
     EfficientNet_B3_Weights,
+    ResNet18_Weights,
     efficientnet_b3,
+    resnet18,
 )
 
 from .utils import NUM_CLASSES
 
+EFFICIENTNET_B3_ARCH = "efficientnet_b3"
+RESNET18_BASELINE_ARCH = "resnet18_baseline"
+SUPPORTED_MODEL_ARCHITECTURES = (
+    EFFICIENTNET_B3_ARCH,
+    RESNET18_BASELINE_ARCH,
+)
 
-class MultiHeadEfficientNet(pl.LightningModule):
+
+class _BaseMultiHeadModel(pl.LightningModule):
     def __init__(
         self,
+        backbone: nn.Module,
+        in_features: int,
         lr=1e-3,
         weight_decay=1e-4,
         epochs=30,
         age_loss_weight=0.01,
-        freeze_below_index=300,
-        pretrained=True,
+        architecture: str = EFFICIENTNET_B3_ARCH,
     ):
         super().__init__()
 
-        self.save_hyperparameters()
-
-        backbone = efficientnet_b3(
-            weights=EfficientNet_B3_Weights.IMAGENET1K_V1 if pretrained else None,
+        self.save_hyperparameters(
+            ignore=["backbone"],
         )
 
-        for idx, (_, param) in enumerate(backbone.named_parameters()):
-            param.requires_grad = idx > freeze_below_index
-
-        backbone.classifier = nn.Identity()
-
         self.backbone = backbone
-
-        in_features = 1536
 
         self.head_category = nn.Linear(
             in_features,
@@ -213,3 +214,137 @@ class MultiHeadEfficientNet(pl.LightningModule):
             "optimizer": optimizer,
             "lr_scheduler": scheduler,
         }
+
+
+class MultiHeadEfficientNet(_BaseMultiHeadModel):
+    def __init__(
+        self,
+        lr=1e-3,
+        weight_decay=1e-4,
+        epochs=30,
+        age_loss_weight=0.01,
+        freeze_below_index=300,
+        pretrained=True,
+        architecture: str = EFFICIENTNET_B3_ARCH,
+    ):
+        if architecture != EFFICIENTNET_B3_ARCH:
+            raise ValueError(
+                f"Unexpected architecture for MultiHeadEfficientNet: '{architecture}'"
+            )
+
+        backbone = efficientnet_b3(
+            weights=EfficientNet_B3_Weights.IMAGENET1K_V1 if pretrained else None,
+        )
+
+        for idx, (_, param) in enumerate(backbone.named_parameters()):
+            param.requires_grad = idx > freeze_below_index
+
+        backbone.classifier = nn.Identity()
+
+        super().__init__(
+            backbone=backbone,
+            in_features=1536,
+            lr=lr,
+            weight_decay=weight_decay,
+            epochs=epochs,
+            age_loss_weight=age_loss_weight,
+            architecture=architecture,
+        )
+        self.save_hyperparameters(
+            {
+                "freeze_below_index": freeze_below_index,
+                "pretrained": pretrained,
+            }
+        )
+
+
+class MultiHeadResNet18Baseline(_BaseMultiHeadModel):
+    def __init__(
+        self,
+        lr=1e-3,
+        weight_decay=1e-4,
+        epochs=30,
+        age_loss_weight=0.01,
+        pretrained=True,
+        architecture: str = RESNET18_BASELINE_ARCH,
+    ):
+        if architecture != RESNET18_BASELINE_ARCH:
+            raise ValueError(
+                f"Unexpected architecture for MultiHeadResNet18Baseline: "
+                f"'{architecture}'"
+            )
+
+        backbone = resnet18(
+            weights=ResNet18_Weights.IMAGENET1K_V1 if pretrained else None,
+        )
+        for param in backbone.parameters():
+            param.requires_grad = False
+        backbone.fc = nn.Identity()
+
+        super().__init__(
+            backbone=backbone,
+            in_features=512,
+            lr=lr,
+            weight_decay=weight_decay,
+            epochs=epochs,
+            age_loss_weight=age_loss_weight,
+            architecture=architecture,
+        )
+        self.save_hyperparameters({"pretrained": pretrained})
+
+
+def build_model(
+    architecture: str,
+    lr=1e-3,
+    weight_decay=1e-4,
+    epochs=30,
+    age_loss_weight=0.01,
+    freeze_below_index=300,
+    pretrained=True,
+) -> pl.LightningModule:
+    if architecture == EFFICIENTNET_B3_ARCH:
+        return MultiHeadEfficientNet(
+            lr=lr,
+            weight_decay=weight_decay,
+            epochs=epochs,
+            age_loss_weight=age_loss_weight,
+            freeze_below_index=freeze_below_index,
+            pretrained=pretrained,
+            architecture=architecture,
+        )
+
+    if architecture == RESNET18_BASELINE_ARCH:
+        return MultiHeadResNet18Baseline(
+            lr=lr,
+            weight_decay=weight_decay,
+            epochs=epochs,
+            age_loss_weight=age_loss_weight,
+            pretrained=pretrained,
+            architecture=architecture,
+        )
+
+    supported = ", ".join(SUPPORTED_MODEL_ARCHITECTURES)
+    raise ValueError(f"Unknown architecture '{architecture}'. Supported: {supported}")
+
+
+def load_model_from_checkpoint(
+    checkpoint_path: str,
+    architecture: str,
+    map_location="cpu",
+) -> pl.LightningModule:
+    if architecture == EFFICIENTNET_B3_ARCH:
+        return MultiHeadEfficientNet.load_from_checkpoint(
+            checkpoint_path,
+            map_location=map_location,
+            architecture=architecture,
+        )
+
+    if architecture == RESNET18_BASELINE_ARCH:
+        return MultiHeadResNet18Baseline.load_from_checkpoint(
+            checkpoint_path,
+            map_location=map_location,
+            architecture=architecture,
+        )
+
+    supported = ", ".join(SUPPORTED_MODEL_ARCHITECTURES)
+    raise ValueError(f"Unknown architecture '{architecture}'. Supported: {supported}")

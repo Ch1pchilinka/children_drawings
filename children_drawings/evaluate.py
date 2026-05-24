@@ -4,7 +4,7 @@ from omegaconf import DictConfig
 
 from .data import ChildrenDrawingsDataModule
 from .loggers.resolver import get_logger
-from .model import MultiHeadEfficientNet
+from .model import load_model_from_checkpoint
 from .utils import ensure_data, resolve_repo_path
 
 
@@ -12,8 +12,9 @@ def evaluate(cfg: DictConfig):
     ensure_data(cfg.data.data_root, "validation")
 
     checkpoint_path = resolve_repo_path(cfg.inference.checkpoint)
-    model = MultiHeadEfficientNet.load_from_checkpoint(
+    model = load_model_from_checkpoint(
         str(checkpoint_path),
+        architecture=cfg.model.architecture,
         map_location="cpu",
     )
 
