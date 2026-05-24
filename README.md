@@ -222,29 +222,6 @@ MLflow tracking URI: `http://localhost:8080` (по умолчанию, чере�
 - `git_commit_id` (версия кода запуска),
 - `model_architecture` (какая архитектура запускалась: `efficientnet_b3` или `resnet18_baseline`).
 
-<style type="text/css">
-#T_b0a5d th {
-  background-color: #111827;
-  color: white;
-  text-align: center;
-}
-#T_b0a5d td {
-  text-align: center;
-}
-#T_b0a5d caption {
-  caption-side: top;
-  font-weight: bold;
-  font-size: 14px;
-}
-#T_b0a5d_row0_col3, #T_b0a5d_row0_col4, #T_b0a5d_row0_col5, #T_b0a5d_row0_col7, #T_b0a5d_row1_col6 {
-  background-color: #006837;
-  color: #f1f1f1;
-}
-#T_b0a5d_row0_col6, #T_b0a5d_row1_col3, #T_b0a5d_row1_col4, #T_b0a5d_row1_col5, #T_b0a5d_row1_col7 {
-  background-color: #a50026;
-  color: #f1f1f1;
-}
-</style>
 <table id="T_b0a5d">
   <caption>Validation comparison (evaluate runs only)</caption>
   <thead>
@@ -332,7 +309,7 @@ cp artifacts/tensorrt_models/children_drawings.plan models/children_drawings/1/m
 - `models/children_drawings/1/model.plan` (собирается на целевой машине);
 - `children_drawings/api.py` и web UI для пользовательского API.
 
-## DVC: данные и модели
+## Данные и модели
 
 Настроены два remote:
 
@@ -355,6 +332,12 @@ uv run dvc pull artifacts/onnx_models.dvc
 
 ```bash
 uv run python scripts/pull_from_dvc.py onnx
+```
+
+Также есть возможность скачать данные напрямую из Hugging Face (для этого нужно указать в .env свой HF токен HF_TOKEN):
+
+```bash
+uv run python scripts/download.py download_data --destination_path ./data
 ```
 
 ## Infer / Serving
@@ -402,7 +385,7 @@ uv run children-drawings-infer inference.checkpoint=artifacts/checkpoints/best.c
 Поднять Triton:
 
 ```bash
-docker compose up triton-pipeline
+sudo docker compose up triton-pipeline
 ```
 
 Smoke-клиент к Triton:
@@ -414,7 +397,7 @@ uv run python scripts/triton_smoke.py
 Web-сервис (загрузка файлов + canvas-рисование):
 
 ```bash
-docker compose up triton-pipeline web-app
+sudo docker compose up triton-pipeline web-app
 ```
 
 Важно: инференс/экспорт в этом сервисе выполняется только для основной модели
