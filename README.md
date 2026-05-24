@@ -152,13 +152,13 @@
 ```mermaid
 flowchart TD
   A["DVC data: train validation batch"] --> B["Train with PyTorch Lightning and Hydra"]
-  B --> C["Best checkpoint artifacts/checkpoints/best.ckpt"]
+  B --> C["Best checkpoint]
   C --> D["Export to ONNX"]
-  D --> E["Build TensorRT engine .plan"]
+  D --> E["Build TensorRT engine]
   E --> F["Triton Inference Server"]
   F --> G1["FastAPI and Web UI"]
-  F --> G2["triton_smoke.py"]
-  C --> H["Local CLI infer children-drawings-infer"]
+  F --> G2["Triton smoke test"]
+  C --> H["Local CLI inference"]
 ```
 
 ## Setup
