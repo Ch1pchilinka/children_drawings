@@ -1,0 +1,23 @@
+name: "children_drawings"
+platform: "tensorrt_plan"
+max_batch_size: 0
+input {
+  name: "input"
+  data_type: TYPE_FP32
+  dims: [ -1, 3, 300, 300 ]
+}
+output {
+  name: "category"
+  data_type: TYPE_FP32
+  dims: [ -1, 4 ]
+}
+output {
+  name: "age"
+  data_type: TYPE_FP32
+  dims: [ -1 ]
+}
+output {
+  name: "gender"
+  data_type: TYPE_FP32
+  dims: [ -1, 2 ]
+}

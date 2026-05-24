@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import numpy as np
 import pytorch_lightning as pl
 import torch
@@ -61,14 +59,22 @@ class ChildrenDrawingsDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
 
     def setup(self, stage=None):
-        self.train_ds = ChildrenDrawingsDataset(
-            load_from_disk(str(self.data_root / "train")),
-            TRAIN_TRANSFORMS,
-        )
-        self.val_ds = ChildrenDrawingsDataset(
-            load_from_disk(str(self.data_root / "validation")),
-            VAL_TRANSFORMS,
-        )
+        if stage in (None, "fit"):
+            self.train_ds = ChildrenDrawingsDataset(
+                load_from_disk(str(self.data_root / "train")),
+                TRAIN_TRANSFORMS,
+            )
+            self.val_ds = ChildrenDrawingsDataset(
+                load_from_disk(str(self.data_root / "validation")),
+                VAL_TRANSFORMS,
+            )
+            return
+
+        if stage in ("validate", "test"):
+            self.val_ds = ChildrenDrawingsDataset(
+                load_from_disk(str(self.data_root / "validation")),
+                VAL_TRANSFORMS,
+            )
 
     def train_dataloader(self):
         return DataLoader(

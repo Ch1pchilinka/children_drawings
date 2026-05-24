@@ -4,3 +4,6 @@
 ['remote "r2-storage"']
     url = s3://children-drawings-dvc/data
     endpointurl = https://8c75d8e5f01b5fb0a7b0ec8878f6cda9.r2.cloudflarestorage.com
+['remote "r2-models"']
+    url = s3://children-drawings-dvc/data/models
+    endpointurl = https://8c75d8e5f01b5fb0a7b0ec8878f6cda9.r2.cloudflarestorage.com

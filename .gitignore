@@ -217,15 +217,62 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# /data
-/outputs
-/logs
-/checkpoints
-/test_images
+# =========================
+# Project-specific ML rules
+# =========================
 
-mlflow.db
-dvc-service-account.json
+# Runtime outputs / logs
+outputs/
+logs/
+lightning_logs/
+mlruns/
+wandb/
 
+# Local experiment helpers
+checkpoints/
+test_images/
 children_drawings/playgr.ipynb
-TODO.txt
-artifacts/
+
+# Local databases / service files
+mlflow.db
+*.sqlite
+*.sqlite3
+*.db
+
+# DVC local credentials and service accounts
+dvc-service-account.json
+.dvc/config.local
+
+# Artifacts directory: keep only DVC pointer files
+artifacts/*
+!artifacts/onnx_models.dvc
+
+# Model / checkpoint binaries
+models/**/model.plan
+*.onnx
+*.onnx.data
+*.plan
+*.engine
+*.trt
+*.ckpt
+*.pt
+*.pth
+*.h5
+*.hdf5
+*.pkl
+*.joblib
+*.safetensors
+*.npy
+*.npz
+
+# Common archives / big dumps
+*.tar
+*.tar.gz
+*.zip
+*.7z
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

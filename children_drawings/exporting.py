@@ -152,9 +152,14 @@ def export_to_onnx(cfg: DictConfig) -> tuple[Path, int, float]:
     onnx_path = resolve_repo_path(cfg.export.onnx_path)
     onnx_path.parent.mkdir(parents=True, exist_ok=True)
 
-    dynamic_shapes = None
+    dynamic_axes = None
     if cfg.model.dynamic_axes:
-        dynamic_shapes = ({0: torch.export.Dim("batch")},)
+        dynamic_axes = {
+            "input": {0: "batch"},
+            "category": {0: "batch"},
+            "age": {0: "batch"},
+            "gender": {0: "batch"},
+        }
 
     with torch.inference_mode():
         torch.onnx.export(
@@ -163,7 +168,8 @@ def export_to_onnx(cfg: DictConfig) -> tuple[Path, int, float]:
             str(onnx_path),
             input_names=["input"],
             output_names=list(OUTPUT_NAMES),
-            dynamic_shapes=dynamic_shapes,
+            dynamic_axes=dynamic_axes,
+            dynamo=True,
             opset_version=int(cfg.model.opset),
             do_constant_folding=True,
         )

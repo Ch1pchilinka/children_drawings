@@ -12,8 +12,6 @@ Usage:
 
 from __future__ import annotations
 
-import os
-from getpass import getpass
 from pathlib import Path
 
 import fire
@@ -24,16 +22,16 @@ from omegaconf import OmegaConf
 
 DATASET_NAME = "ironDong/Children_Drawings"
 
-load_dotenv()
-
-cfg = OmegaConf.load("./conf/secret/default.yaml")
-
 
 class ChildrenDrawingsDownloader:
+    def __init__(self):
+        load_dotenv()
+        self.cfg = OmegaConf.load("./conf/secret/default.yaml")
+
     def info(self):
         info = dataset_info(
             DATASET_NAME,
-            token=cfg.token,
+            token=self.cfg.token,
         )
 
         print(f"\nDataset: {info.id}")
@@ -60,14 +58,14 @@ class ChildrenDrawingsDownloader:
         print(f"Downloading dataset '{DATASET_NAME}'...")
 
         if split is not None:
-            dataset = load_dataset(DATASET_NAME, split=split, token=cfg.token)
+            dataset = load_dataset(DATASET_NAME, split=split, token=self.cfg.token)
 
             split_path = destination / split
             dataset.save_to_disk(str(split_path))
 
             print(f"Saved split '{split}' to '{split_path}'.")
         else:
-            dataset = load_dataset(DATASET_NAME, token=cfg.token)
+            dataset = load_dataset(DATASET_NAME, token=self.cfg.token)
 
             for split_name, split_data in dataset.items():
                 split_path = destination / split_name

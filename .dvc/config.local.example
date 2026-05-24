@@ -1,0 +1,7 @@
+['remote "r2-storage"']
+    access_key_id = ${R2_ACCESS_KEY_ID}
+    secret_access_key = ${R2_SECRET_ACCESS_KEY}
+
+['remote "r2-models"']
+    access_key_id = ${R2_ACCESS_KEY_ID}
+    secret_access_key = ${R2_SECRET_ACCESS_KEY}

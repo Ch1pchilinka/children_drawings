@@ -60,6 +60,14 @@ VAL_TRANSFORMS = A.Compose(
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
+DATA_DVC_TARGETS = {
+    "train": "data/train.dvc",
+    "validation": "data/validation.dvc",
+    "batch": "data/batch.dvc",
+}
+
+ONNX_DVC_TARGET = "artifacts/onnx_models.dvc"
+
 
 def resolve_repo_path(path_like: str | Path) -> Path:
     """Resolve config paths against the repository root."""
@@ -81,18 +89,55 @@ def preprocess_image(path: str | Path) -> torch.Tensor:
         return preprocess_pil_image(image)
 
 
-def ensure_data(data_root: str, mode: str):
-    """Проверяет наличие данных и при необходимости выполняет dvc pull."""
+def _pull_dvc_target(target: str, remote: str | None = None):
+    repo = Repo(str(REPO_ROOT))
+    pull_kwargs: dict[str, object] = {"targets": [target]}
+    if remote is not None:
+        pull_kwargs["remote"] = remote
+    repo.pull(**pull_kwargs)
+
+
+def ensure_data(
+    data_root: str,
+    mode: str,
+    remote: str = "r2-storage",
+):
+    """Проверяет наличие сплита и при необходимости выполняет dvc pull target."""
     data_path = resolve_repo_path(Path(data_root, mode))
     if not data_path.exists() or not any(data_path.iterdir()):
         print("Данные не найдены. Загружаем из облака...")
         try:
-            Repo(str(REPO_ROOT)).pull()
+            target = DATA_DVC_TARGETS.get(mode)
+            if target is not None:
+                _pull_dvc_target(target, remote=remote)
+            else:
+                Repo(str(REPO_ROOT)).pull(remote=remote)
             print("Данные успешно загружены.")
         except DvcException as e:
             raise RuntimeError(f"Ошибка загрузки данных через DVC: {e}")
     else:
         print("Данные уже существуют.")
+
+
+def ensure_onnx_artifacts(
+    onnx_model_path: str | Path = "artifacts/onnx_models/children_drawings.onnx",
+    remote: str = "r2-models",
+):
+    """Проверяет наличие ONNX-артефактов и при необходимости выполняет dvc pull."""
+    onnx_path = resolve_repo_path(onnx_model_path)
+    onnx_data_path = resolve_repo_path(f"{onnx_model_path}.data")
+
+    if onnx_path.exists() and onnx_data_path.exists():
+        return
+
+    print("ONNX артефакты не найдены. Загружаем из DVC...")
+    try:
+        _pull_dvc_target(ONNX_DVC_TARGET, remote=remote)
+    except DvcException as e:
+        raise RuntimeError(f"Ошибка загрузки ONNX через DVC: {e}") from e
+
+    if not onnx_path.exists():
+        raise FileNotFoundError(f"ONNX model still missing after pull: {onnx_path}")
 
 
 def load_images_as_tensor_batch(

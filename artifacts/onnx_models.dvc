@@ -1,0 +1,7 @@
+outs:
+- md5: 8eeb7805a7125ef74208196d832977b6.dir
+  size: 44261467
+  nfiles: 2
+  hash: md5
+  path: onnx_models
+  remote: r2-models

@@ -1,6 +1,6 @@
 services:
   mlflow:
-    build: .
+    image: ghcr.io/mlflow/mlflow:v3.12.0
     command:
       - mlflow
       - server
@@ -17,47 +17,127 @@ services:
     volumes:
       - mlflow-data:/mlflow
 
-  dvc-pull:
-    build: .
-    command: dvc pull
-    profiles: ["data"]
+  trtexec-build:
+    image: nvcr.io/nvidia/tensorrt:24.07-py3
+    runtime: nvidia
     environment:
-      DVC_NO_ANALYTICS: "1"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     volumes:
-      - ./data:/app/data
-      - ./.dvc/config.local:/app/.dvc/config.local:ro
-      - dvc-cache:/app/.dvc/cache
+      - ./:/workspace
+    working_dir: /workspace
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    command: >
+      trtexec
+      --onnx=artifacts/onnx_models/children_drawings.onnx
+      --saveEngine=artifacts/tensorrt_models/children_drawings.plan
+      --fp16
+      --minShapes=input:1x3x300x300
+      --optShapes=input:16x3x300x300
+      --maxShapes=input:32x3x300x300
+      --verbose
 
-  trainer:
-    build: .
-    command:
-      - children-drawings-train
-      - logger.mlflow.tracking_uri=http://mlflow:8080
-    profiles: ["train"]
-    depends_on:
-      - mlflow
+  trtexec-benchmark-b1:
+    image: nvcr.io/nvidia/tensorrt:24.07-py3
+    runtime: nvidia
     environment:
-      DVC_NO_ANALYTICS: "1"
-      MLFLOW_TRACKING_URI: http://mlflow:8080
-    gpus: all
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     volumes:
-      - ./data:/app/data
-      - ./artifacts:/app/artifacts
-      - ./logs:/app/logs
-      - ./.dvc/config.local:/app/.dvc/config.local:ro
-      - dvc-cache:/app/.dvc/cache
+      - ./:/workspace
+    working_dir: /workspace
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    command: >
+      trtexec
+      --loadEngine=artifacts/tensorrt_models/children_drawings.plan
+      --shapes=input:1x3x300x300
+      --warmUp=500
+      --duration=30
+      --useSpinWait
 
-  api:
-    build: .
-    command:
-      - children-drawings-api
+  trtexec-benchmark-b2:
+    image: nvcr.io/nvidia/tensorrt:24.07-py3
+    runtime: nvidia
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    command: >
+      trtexec
+      --loadEngine=artifacts/tensorrt_models/children_drawings.plan
+      --shapes=input:16x3x300x300
+      --warmUp=500
+      --duration=30
+      --useSpinWait
+
+  trtexec-benchmark-b3:
+    image: nvcr.io/nvidia/tensorrt:24.07-py3
+    runtime: nvidia
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    command: >
+      trtexec
+      --loadEngine=artifacts/tensorrt_models/children_drawings.plan
+      --shapes=input:32x3x300x300
+      --warmUp=500
+      --duration=30
+      --useSpinWait
+
+  triton-pipeline:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.triton-pipeline
+    image: triton-seminar-pipeline:24.07
+    runtime: nvidia
+    shm_size: "2gb"
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     ports:
-      - "8000:8000"
-    environment:
-      CHILDREN_DRAWINGS_ONNX_PATH: /app/artifacts/onnx_models/children_drawings.onnx
+      - "8100:8000" # HTTP
+      - "8101:8001" # gRPC
+      - "8102:8002" # Prometheus metrics
     volumes:
-      - ./artifacts:/app/artifacts:ro
+      - ./models_pipeline:/models
+    command: >
+      tritonserver
+      --model-repository=/models
+      --log-verbose=1
+
+  web-app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    image: children-drawings-web:latest
+    depends_on:
+      - triton-pipeline
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8000"
+      TRITON_URL: triton-pipeline:8000
+      TRITON_MODEL_NAME: children_drawings
+    ports:
+      - "8200:8000"
 
 volumes:
-  dvc-cache:
   mlflow-data:

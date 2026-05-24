@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Children Drawings Inference</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f3f4f6;
+        --surface: #ffffff;
+        --ink: #111827;
+        --muted: #4b5563;
+        --line: #d1d5db;
+        --accent: #0f766e;
+        --accent-soft: #ccfbf1;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      h1 {
+        margin: 0 0 4px;
+        font-size: 28px;
+        font-weight: 700;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .layout {
+        margin-top: 20px;
+        display: grid;
+        grid-template-columns: minmax(320px, 460px) minmax(320px, 1fr);
+        gap: 16px;
+      }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+      }
+
+      .panel h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      button {
+        border: 1px solid transparent;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        border-color: var(--line);
+        background: #fff;
+        color: var(--ink);
+      }
+
+      input[type="file"] {
+        width: 100%;
+      }
+
+      .canvas-wrap {
+        width: 100%;
+        max-width: 300px;
+      }
+
+      canvas {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        touch-action: none;
+      }
+
+      .results {
+        display: grid;
+        gap: 10px;
+      }
+
+      .result {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+        background: var(--surface);
+      }
+
+      .result .head {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      .pill {
+        padding: 2px 8px;
+        border-radius: 8px;
+        background: var(--accent-soft);
+        color: #134e4a;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      .status {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 920px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Children Drawings Inference</h1>
+      <p>
+        Загрузка изображений и ручной рисунок с инференсом через Triton +
+        TensorRT.
+      </p>
+
+      <section class="layout">
+        <div class="panel">
+          <h2>Изображения из файлов</h2>
+          <div class="controls">
+            <input id="uploadInput" type="file" accept="image/*" multiple />
+            <button id="predictFilesBtn">Распознать файлы</button>
+          </div>
+          <p class="status" id="uploadStatus">
+            Выберите одно или несколько изображений.
+          </p>
+        </div>
+
+        <div class="panel">
+          <h2>Нарисовать вручную</h2>
+          <div class="canvas-wrap">
+            <canvas id="drawCanvas" width="300" height="300"></canvas>
+          </div>
+          <div class="controls" style="margin-top: 10px">
+            <label for="brushSize">Кисть</label>
+            <input id="brushSize" type="range" min="2" max="24" value="10" />
+            <button id="clearCanvasBtn" class="secondary">Очистить</button>
+            <button id="predictCanvasBtn">Распознать рисунок</button>
+          </div>
+          <p class="status" id="canvasStatus">
+            Нарисуйте объект и отправьте его в модель.
+          </p>
+        </div>
+      </section>
+
+      <section class="panel" style="margin-top: 16px">
+        <h2>Результаты</h2>
+        <div id="results" class="results"></div>
+      </section>
+    </main>
+
+    <script>
+      const uploadInput = document.getElementById("uploadInput");
+      const predictFilesBtn = document.getElementById("predictFilesBtn");
+      const uploadStatus = document.getElementById("uploadStatus");
+
+      const canvas = document.getElementById("drawCanvas");
+      const brushSize = document.getElementById("brushSize");
+      const clearCanvasBtn = document.getElementById("clearCanvasBtn");
+      const predictCanvasBtn = document.getElementById("predictCanvasBtn");
+      const canvasStatus = document.getElementById("canvasStatus");
+
+      const resultsNode = document.getElementById("results");
+
+      const ctx = canvas.getContext("2d");
+      let drawing = false;
+
+      const setCanvasWhite = () => {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      };
+
+      const pointerPos = (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = (event.clientX - rect.left) * (canvas.width / rect.width);
+        const y = (event.clientY - rect.top) * (canvas.height / rect.height);
+        return { x, y };
+      };
+
+      const startDraw = (event) => {
+        drawing = true;
+        const { x, y } = pointerPos(event);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+      };
+
+      const draw = (event) => {
+        if (!drawing) {
+          return;
+        }
+        const { x, y } = pointerPos(event);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = "#111827";
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = Number(brushSize.value);
+        ctx.stroke();
+      };
+
+      const endDraw = () => {
+        drawing = false;
+      };
+
+      const clearResults = () => {
+        resultsNode.innerHTML = "";
+      };
+
+      const renderPrediction = (prediction) => {
+        const row = document.createElement("article");
+        row.className = "result";
+        row.innerHTML = `
+          <div class="head">
+            <strong>${prediction.image || "drawing"}</strong>
+            <span class="pill">${prediction.class}</span>
+          </div>
+          <div>confidence: <span class="mono">${Number(
+            prediction.confidence,
+          ).toFixed(4)}</span></div>
+          <div>age: <span class="mono">${prediction.age}</span></div>
+          <div>gender: <span class="mono">${prediction.gender}</span></div>
+          <div>gender confidence: <span class="mono">${Number(
+            prediction.gender_confidence,
+          ).toFixed(4)}</span></div>
+          <div style="margin-top: 6px">${prediction.message || ""}</div>
+        `;
+        resultsNode.appendChild(row);
+      };
+
+      const renderError = (text) => {
+        const row = document.createElement("article");
+        row.className = "result";
+        row.innerHTML = `<strong>Ошибка:</strong> ${text}`;
+        resultsNode.appendChild(row);
+      };
+
+      const parseErrorDetail = async (response) => {
+        try {
+          const payload = await response.json();
+          return payload.detail || JSON.stringify(payload);
+        } catch {
+          return `${response.status} ${response.statusText}`;
+        }
+      };
+
+      const predictFiles = async () => {
+        clearResults();
+        const files = uploadInput.files;
+        if (!files || files.length === 0) {
+          uploadStatus.textContent = "Выберите хотя бы один файл.";
+          return;
+        }
+        uploadStatus.textContent = "Отправка файлов в сервис...";
+
+        const form = new FormData();
+        for (const file of files) {
+          form.append("files", file);
+        }
+
+        const response = await fetch("/predict/batch", {
+          method: "POST",
+          body: form,
+        });
+
+        if (!response.ok) {
+          const detail = await parseErrorDetail(response);
+          uploadStatus.textContent = "Ошибка при инференсе.";
+          renderError(detail);
+          return;
+        }
+
+        const payload = await response.json();
+        for (const prediction of payload.predictions) {
+          renderPrediction(prediction);
+        }
+        uploadStatus.textContent = `Готово: ${payload.count} изображений.`;
+      };
+
+      const predictCanvas = async () => {
+        clearResults();
+        canvasStatus.textContent = "Отправка рисунка в сервис...";
+        const imageBase64 = canvas.toDataURL("image/png");
+
+        const response = await fetch("/predict/base64", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_base64: imageBase64 }),
+        });
+
+        if (!response.ok) {
+          const detail = await parseErrorDetail(response);
+          canvasStatus.textContent = "Ошибка при инференсе рисунка.";
+          renderError(detail);
+          return;
+        }
+
+        const prediction = await response.json();
+        prediction.image = "canvas";
+        renderPrediction(prediction);
+        canvasStatus.textContent = "Готово.";
+      };
+
+      canvas.addEventListener("pointerdown", startDraw);
+      canvas.addEventListener("pointermove", draw);
+      canvas.addEventListener("pointerup", endDraw);
+      canvas.addEventListener("pointerleave", endDraw);
+
+      clearCanvasBtn.addEventListener("click", () => {
+        setCanvasWhite();
+        canvasStatus.textContent = "Холст очищен.";
+      });
+
+      predictFilesBtn.addEventListener("click", () => {
+        predictFiles().catch((error) => {
+          uploadStatus.textContent = "Сервис вернул ошибку.";
+          renderError(String(error));
+        });
+      });
+
+      predictCanvasBtn.addEventListener("click", () => {
+        predictCanvas().catch((error) => {
+          canvasStatus.textContent = "Сервис вернул ошибку.";
+          renderError(String(error));
+        });
+      });
+
+      setCanvasWhite();
+    </script>
+  </body>
+</html>

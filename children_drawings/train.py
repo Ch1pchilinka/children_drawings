@@ -1,3 +1,5 @@
+import subprocess
+
 import hydra
 import pytorch_lightning as pl
 from omegaconf import DictConfig
@@ -6,11 +8,24 @@ from pytorch_lightning.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
+from pytorch_lightning.loggers import MLFlowLogger
 
 from .data import ChildrenDrawingsDataModule
 from .loggers.resolver import get_logger
 from .model import MultiHeadEfficientNet
-from .utils import ensure_data, resolve_repo_path
+from .utils import REPO_ROOT, ensure_data, resolve_repo_path
+
+
+def _resolve_git_commit_id() -> str | None:
+    try:
+        commit_id = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=REPO_ROOT,
+            text=True,
+        ).strip()
+    except (subprocess.SubprocessError, OSError):
+        return None
+    return commit_id or None
 
 
 def train(cfg: DictConfig):
@@ -59,12 +74,18 @@ def train(cfg: DictConfig):
             ),
         )
 
+    logger = get_logger(cfg)
+
+    git_commit_id = _resolve_git_commit_id()
+    if isinstance(logger, MLFlowLogger) and logger.run_id is not None and git_commit_id:
+        logger.experiment.log_param(logger.run_id, "git_commit_id", git_commit_id)
+
     trainer = pl.Trainer(
         enable_checkpointing=cfg.training.enable_checkpointing,
         max_epochs=cfg.training.epochs,
         precision=cfg.training.precision,
         accelerator=cfg.model.device,
-        logger=get_logger(cfg),
+        logger=logger,
         callbacks=callbacks,
         log_every_n_steps=cfg.training.log_every_n_steps,
     )
