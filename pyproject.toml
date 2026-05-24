@@ -26,6 +26,7 @@ dependencies = [
     "torchvision>=0.26.0",
     "tritonclient[http]>=2.68.0",
     "uvicorn[standard]>=0.34.0",
+    "opencv-python>=4.13.0.92",
 ]
 
 [project.scripts]

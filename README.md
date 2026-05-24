@@ -172,6 +172,12 @@ uv run pre-commit install
 uv run dvc pull data/train.dvc data/validation.dvc data/batch.dvc
 ```
 
+ВАЖНО: Перед обучением поднимите MLflow:
+
+```bash
+sudo docker compose up -d mlflow
+```
+
 ## Train
 
 1. Установить окружение и подтянуть данные (раздел Setup).
@@ -196,14 +202,14 @@ uv run children-drawings-evaluate
 uv run children-drawings-train training.epochs=5 data.batch_size=16
 ```
 
-Запуск baseline `ResNet-18` (без fine-tune, только для сравнения):
+Запуск обучения baseline `ResNet-18`:
 
 ```bash
 uv run children-drawings-train model.architecture=resnet18_baseline
 uv run children-drawings-evaluate model.architecture=resnet18_baseline
 ```
 
-По умолчанию в основном конфиге установлено `training.epochs=30`.
+По умолчанию `training.epochs=30`.
 
 ## Logging (MLflow)
 
@@ -216,10 +222,77 @@ MLflow tracking URI: `http://localhost:8080` (по умолчанию, чере�
 - `git_commit_id` (версия кода запуска),
 - `model_architecture` (какая архитектура запускалась: `efficientnet_b3` или `resnet18_baseline`).
 
+<style type="text/css">
+#T_b0a5d th {
+  background-color: #111827;
+  color: white;
+  text-align: center;
+}
+#T_b0a5d td {
+  text-align: center;
+}
+#T_b0a5d caption {
+  caption-side: top;
+  font-weight: bold;
+  font-size: 14px;
+}
+#T_b0a5d_row0_col3, #T_b0a5d_row0_col4, #T_b0a5d_row0_col5, #T_b0a5d_row0_col7, #T_b0a5d_row1_col6 {
+  background-color: #006837;
+  color: #f1f1f1;
+}
+#T_b0a5d_row0_col6, #T_b0a5d_row1_col3, #T_b0a5d_row1_col4, #T_b0a5d_row1_col5, #T_b0a5d_row1_col7 {
+  background-color: #a50026;
+  color: #f1f1f1;
+}
+</style>
+<table id="T_b0a5d">
+  <caption>Validation comparison (evaluate runs only)</caption>
+  <thead>
+    <tr>
+      <th id="T_b0a5d_level0_col0" class="col_heading level0 col0" >run</th>
+      <th id="T_b0a5d_level0_col1" class="col_heading level0 col1" >time</th>
+      <th id="T_b0a5d_level0_col2" class="col_heading level0 col2" >model</th>
+      <th id="T_b0a5d_level0_col3" class="col_heading level0 col3" >val_f1_cat</th>
+      <th id="T_b0a5d_level0_col4" class="col_heading level0 col4" >val_acc_cat</th>
+      <th id="T_b0a5d_level0_col5" class="col_heading level0 col5" >val_f1_gender</th>
+      <th id="T_b0a5d_level0_col6" class="col_heading level0 col6" >val_mae_age</th>
+      <th id="T_b0a5d_level0_col7" class="col_heading level0 col7" >val_loss</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td id="T_b0a5d_row0_col0" class="data row0 col0" >14651b42</td>
+      <td id="T_b0a5d_row0_col1" class="data row0 col1" >05-24 04:48</td>
+      <td id="T_b0a5d_row0_col2" class="data row0 col2" >main (efficientnet_b3)</td>
+      <td id="T_b0a5d_row0_col3" class="data row0 col3" >0.9673</td>
+      <td id="T_b0a5d_row0_col4" class="data row0 col4" >0.9980</td>
+      <td id="T_b0a5d_row0_col5" class="data row0 col5" >0.4138</td>
+      <td id="T_b0a5d_row0_col6" class="data row0 col6" >2.2146</td>
+      <td id="T_b0a5d_row0_col7" class="data row0 col7" >0.6610</td>
+    </tr>
+    <tr>
+      <td id="T_b0a5d_row1_col0" class="data row1 col0" >47913182</td>
+      <td id="T_b0a5d_row1_col1" class="data row1 col1" >05-24 10:57</td>
+      <td id="T_b0a5d_row1_col2" class="data row1 col2" >baseline (resnet18)</td>
+      <td id="T_b0a5d_row1_col3" class="data row1 col3" >0.8838</td>
+      <td id="T_b0a5d_row1_col4" class="data row1 col4" >0.9924</td>
+      <td id="T_b0a5d_row1_col5" class="data row1 col5" >0.3724</td>
+      <td id="T_b0a5d_row1_col6" class="data row1 col6" >2.2087</td>
+      <td id="T_b0a5d_row1_col7" class="data row1 col7" >0.7428</td>
+    </tr>
+  </tbody>
+</table>
+
 Локальный MLflow server:
 
 ```bash
-docker compose up mlflow
+sudo docker compose up mlflow
+```
+
+Проверка доступности:
+
+```bash
+curl -fsS http://localhost:8080/health
 ```
 
 ## Production Preparation
@@ -230,25 +303,27 @@ docker compose up mlflow
 uv run children-drawings-export
 ```
 
-2. Подтянуть ONNX из DVC (если его нет локально):
+ИЛИ
+
+1. Подтянуть ONNX из DVC:
 
 ```bash
 uv run dvc pull artifacts/onnx_models.dvc
 ```
 
-3. На целевой машине собрать TensorRT engine (`.plan`) из ONNX:
+2. На целевой машине собрать TensorRT engine (`.plan`) из ONNX:
 
 ```bash
-docker compose run --rm trtexec-build
+sudo docker compose run --rm trtexec-build
 ```
 
-4. Положить собранный engine в Triton model repository:
+3. Положить собранный engine в Triton model repository:
 
 ```bash
 cp artifacts/tensorrt_models/children_drawings.plan models/children_drawings/1/model.plan
 ```
 
-В репозитории хранится только ONNX. Готовый `model.plan` не версионируется и не хранится в DVC.
+Готовый `model.plan` не версионируется и не хранится в DVC (т.к. привязан к железу).
 
 Комплект поставки для продакшена:
 
