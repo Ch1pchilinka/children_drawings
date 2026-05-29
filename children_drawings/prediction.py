@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-import numpy as np
-import torch
+from typing import TYPE_CHECKING
 
-from .utils import CLASS_NAMES, GENDER_NAMES
+import numpy as np
+
+from .constants import CLASS_NAMES, GENDER_NAMES
+
+if TYPE_CHECKING:
+    import torch
 
 
 def decode_numpy_outputs(
@@ -29,7 +33,7 @@ def decode_numpy_outputs(
     ]
 
 
-def decode_torch_outputs(outputs: dict[str, torch.Tensor]):
+def decode_torch_outputs(outputs: dict[str, "torch.Tensor"]):
     return decode_numpy_outputs(
         outputs["category"].detach().cpu().numpy(),
         outputs["age"].detach().cpu().numpy(),

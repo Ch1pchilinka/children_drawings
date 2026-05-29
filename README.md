@@ -166,12 +166,43 @@ flowchart TD
 Перед `dvc pull` настройте доступы к DVC remote (например, через `.dvc/config.local`
 или переменные окружения из раздела "Секреты").
 
+Профили установки (чтобы не скачивать лишнее):
+
+- Только Triton API/Web (без train/CUDA):
+
 ```bash
-uv sync --dev
+uv sync --no-dev --extra serving
+```
+
+- Triton API/Web + DVC (если нужно тянуть артефакты через `dvc pull`):
+
+```bash
+uv sync --no-dev --extra serving --extra dvc
+```
+
+- Полный ML-пайплайн (train/evaluate/export + DVC):
+
+```bash
+uv sync --dev --extra train --extra export --extra dvc
+```
+
+- API/Web-сервис для Triton:
+
+```bash
+uv sync --no-dev --extra serving
+```
+
+Полный стек (всё сразу):
+
+```bash
+uv sync --dev --all-extras
 uv run pre-commit install
 cp .env.example .env
+cp .dvc/config.local.example .dvc/config.local
 uv run dvc pull data/train.dvc data/validation.dvc data/batch.dvc
 ```
+
+После копирования проверьте, что в `.dvc/config.local` выставлены ваши креды/профиль для remote.
 
 ВАЖНО: Перед обучением поднимите MLflow:
 
@@ -275,6 +306,9 @@ curl -fsS http://localhost:8080/health
 
 ## Production Preparation
 
+Для экспорта checkpoint в ONNX установите `--extra export` (обычно вместе с
+`--extra train`).
+
 1. Экспорт checkpoint в ONNX:
 
 ```bash
@@ -312,6 +346,8 @@ cp artifacts/tensorrt_models/children_drawings.plan models/children_drawings/1/m
 
 ## Данные и модели
 
+Команды `dvc pull` в этом разделе требуют установку `--extra dvc`.
+
 Настроены два remote:
 
 - `r2-storage` — данные (`data/*`)
@@ -343,7 +379,25 @@ uv run python scripts/download.py download_data --destination_path ./data
 
 ## Infer / Serving
 
+### Локальный инференс из ONNX (без PyTorch)
+
+Минимальный сценарий после `git clone`:
+
+```bash
+uv sync --no-dev --extra onnx-local
+uv run children-drawings-onnx-infer inference.images=data/batch/house_image.jpg
+```
+
+Если ONNX-артефакты и/или `data/batch` нужно подтягивать автоматически из DVC:
+
+```bash
+uv sync --no-dev --extra onnx-local --extra dvc
+uv run children-drawings-onnx-infer
+```
+
 ### Локальный инференс из checkpoint (PyTorch)
+
+Требует установку: `--extra train` (и `--extra dvc`, если хотите авто-pull данных).
 
 Запуск по умолчанию (берет `inference.images=${paths.data_root}/batch`):
 
@@ -382,6 +436,8 @@ uv run children-drawings-infer inference.checkpoint=artifacts/checkpoints/best.c
 ```
 
 ### Triton + TensorRT (серверный инференс)
+
+Требует установку: `--extra serving`.
 
 Поднять Triton:
 

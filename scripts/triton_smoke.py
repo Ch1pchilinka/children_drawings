@@ -10,11 +10,12 @@ from pathlib import Path
 import numpy as np
 import tritonclient.http as triton_http
 
+from children_drawings.constants import OUTPUT_NAMES
 from children_drawings.prediction import decode_numpy_outputs
-from children_drawings.utils import load_images_as_tensor_batch, resolve_repo_path
+from children_drawings.preprocessing import load_images_as_numpy_batch
+from children_drawings.utils import resolve_repo_path
 
 IMAGE_PATTERNS = ("*.jpg", "*.jpeg", "*.png")
-OUTPUT_NAMES = ("category", "age", "gender")
 
 
 def _normalize_triton_url(url: str) -> str:
@@ -43,8 +44,8 @@ def run(
     if not image_paths:
         raise FileNotFoundError(f"No images found in {resolve_repo_path(images_dir)}")
 
-    batch_tensor, names = load_images_as_tensor_batch(image_paths)
-    batch = batch_tensor.numpy().astype(np.float32)
+    batch, names = load_images_as_numpy_batch(image_paths)
+    batch = batch.astype(np.float32, copy=False)
 
     client = triton_http.InferenceServerClient(url=url, verbose=False)
     infer_input = triton_http.InferInput("input", list(batch.shape), "FP32")

@@ -5,13 +5,9 @@ from datasets import load_from_disk
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
-from .utils import (
-    CATEGORY_MAP,
-    GENDER_MAP,
-    TRAIN_TRANSFORMS,
-    VAL_TRANSFORMS,
-    resolve_repo_path,
-)
+from .constants import CATEGORY_MAP, GENDER_MAP
+from .transforms import TRAIN_TRANSFORMS, VAL_TRANSFORMS
+from .utils import resolve_repo_path
 
 
 class ChildrenDrawingsDataset(Dataset):

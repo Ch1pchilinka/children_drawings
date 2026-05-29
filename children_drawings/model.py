@@ -11,7 +11,7 @@ from torchvision.models import (
     resnet18,
 )
 
-from .utils import NUM_CLASSES
+from .constants import NUM_CLASSES
 
 EFFICIENTNET_B3_ARCH = "efficientnet_b3"
 RESNET18_BASELINE_ARCH = "resnet18_baseline"

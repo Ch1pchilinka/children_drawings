@@ -17,10 +17,10 @@ from PIL import Image
 from pydantic import BaseModel
 from tritonclient.utils import InferenceServerException
 
+from .constants import OUTPUT_NAMES
 from .prediction import decode_numpy_outputs
-from .utils import preprocess_pil_image
+from .preprocessing import preprocess_pil_image
 
-OUTPUT_NAMES = ("category", "age", "gender")
 DEFAULT_TRITON_URL = "localhost:8100"
 DEFAULT_TRITON_MODEL_NAME = "children_drawings"
 WEB_ROOT = Path(__file__).resolve().parent / "web"
@@ -81,11 +81,8 @@ def _prepare_batch(images: list[Image.Image]) -> np.ndarray:
     if not images:
         raise ValueError("No images were provided.")
 
-    tensors = [
-        preprocess_pil_image(image).squeeze(0).numpy().astype(np.float32)
-        for image in images
-    ]
-    return np.stack(tensors, axis=0)
+    batches = [preprocess_pil_image(image) for image in images]
+    return np.concatenate(batches, axis=0).astype(np.float32, copy=False)
 
 
 def _predict_batch_sync(

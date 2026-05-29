@@ -9,7 +9,8 @@ from omegaconf import DictConfig
 
 from .model import EFFICIENTNET_B3_ARCH, MultiHeadEfficientNet
 from .prediction import decode_torch_outputs
-from .utils import ensure_data, preprocess_image, resolve_repo_path
+from .preprocessing import preprocess_image
+from .utils import ensure_data, resolve_repo_path
 
 IMAGE_PATTERNS = ("*.jpg", "*.jpeg", "*.png")
 
@@ -52,7 +53,7 @@ def infer(cfg: DictConfig):
         raise FileNotFoundError(f"No images found in {cfg.inference.images}")
 
     for image_path in image_paths:
-        image = preprocess_image(image_path).to(device)
+        image = torch.from_numpy(preprocess_image(image_path)).to(device)
 
         with torch.no_grad():
             outputs = model(image)
